@@ -1,0 +1,7 @@
+{
+    "C_Cpp.intelliSenseEngine": "default",
+    "files.associations": {
+        "errno.h": "c",
+        "ipaddr.skel.h": "c"
+    }
+}
