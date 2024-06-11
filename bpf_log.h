@@ -2,7 +2,7 @@
 
 struct log_event {
     __u32 ret;
-    char msg[MAX_MSG_LEN];
+    char msg[MAX_BUF_LEN];
 };
 
 struct {
@@ -21,7 +21,7 @@ struct {
 
 #define BPF_LOG(l, t, f, args...)                                                                                      \
     do {                                                                                                           \
-        static const char fmt[] = "[" #t "] " #l ": " f "";                                                \
+        const char fmt[MAX_BUF_LEN] = "[" #t "] " #l ": " f "";                                                \
         struct log_event *e;                                                                               \
         __u32 zero = 0;                                                                                        \
         int ret;  \
@@ -31,7 +31,7 @@ struct {
         }                                             \
         unsigned long long ___param[___bpf_narg(args)];		\
         ___bpf_fill(___param, args);				\
-	    ret = kmesh_snprintf(e->msg, fmt,			\
-		     ___param, sizeof(___param));		\
-        bpf_printk("after fmt msg:%s",e->msg);                                                                                                            \
+        ret = kmesh_snprintf(e->msg, fmt, ___param, sizeof(___param));      \
+        bpf_printk("ret is%d", ret);		\
+        bpf_printk("after fmt msg :%s", e->msg);		\
     } while (0)

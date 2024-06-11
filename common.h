@@ -1,5 +1,7 @@
 
-#define MAX_MSG_LEN 150
+#define MAX_BUF_LEN 100
+#define MAX_IP4_LEN 15
+#define MAX_PORT_LEN 5
 #define	EINVAL		22	/* Invalid argument */
 
 #ifndef ___bpf_concat
@@ -42,29 +44,38 @@ static inline int convert(int r, char* temp) {
     temp[0] = '0';
     temp[1] = '0';
     temp[2] = '0';
-    temp[3] = '0';
+    temp[3] = '\0';
 
-    int i;
-    if (r < 10) {
-        temp[0] = '0' + r;
-        return 1;        
-    }else if (r >= 10 && r < 100) {
-        i = 1;
-        while (r > 0 && i >= 0) {
-            temp[i] = '0' + (r % 10);
-            r /= 10;
-            i--;
-        }
-        return 2;
-    }else {
-        i = 2;
-        while (r > 0 && i >= 0) {
-            temp[i] = '0' + (r % 10);
-            r /= 10;
-            i--;
-        }
-        return 3;
-    }
+    // int i;
+    // for (int k = 2;k >= 0;k--) {
+
+    // }
+    // if (r < 10) {
+    //     temp[0] = '0' + r;
+    //     return 1;        
+    // }else if (r >= 10 && r < 100) {
+    //     i = 1;
+    //     while (r > 0 && i >= 0) {
+    //         temp[i] = '0' + (r % 10);
+    //         r /= 10;
+    //         i--;
+    //     }
+    //     return 2;
+    // }else {
+    //     i = 2;
+    //     while (r > 0 && i >= 0) {
+    //         temp[i] = '0' + (r % 10);
+    //         r /= 10;
+    //         i--;
+    //     }
+    //     return 3;
+    // }
+    temp[2] = '0' + (r % 10);
+    r /= 10;
+    temp[1] = '0' + (r % 10);
+    r /= 10;
+    temp[0] = '0' + (r % 10);
+    return 3;
 }
 
 static inline int convert_port(u64 port, char *temp) {
@@ -90,95 +101,136 @@ static inline int convert_port(u64 port, char *temp) {
     return 5 - len;
 }
 
-static inline int format_ipv4addr(u32 ip, char *ip4_str) {
+static inline int format_ipv4addr(u64 ip, char ip4_str[MAX_IP4_LEN]) {
     u8 iparr[4];
     iparr[0] = (ip >> 24) & 0xFF;
     iparr[1] = (ip >> 16) & 0xFF;
     iparr[2] = (ip >> 8) & 0xFF;
     iparr[3] = (ip >> 0) & 0xFF;
 
-    char *ip4_ptr = ip4_str;
     int ip_l = 0;
     int ret;
-    for (int i = 0; i < 4; i++) {
-        u8 r = iparr[i];
+    int i = 0;
+#pragma clang loop unroll(full)
+    for (int n = 0; n < 4; n++) {
+        u8 r = iparr[n];
         char temp[4];
         ret = convert(r, temp);
         ip_l += ret;
-        char *d = temp;
-        for (int k = 0; k < ret; k++) {
-            *ip4_ptr++ = *d++;
-        }
-        if (i < 3) {
-            *ip4_ptr++ = '.';
+        ip4_str[i++] = temp[0];
+        ip4_str[i++] = temp[1];
+        ip4_str[i++] = temp[2];
+        if (n < 3) {
+            ip4_str[i++] = '.';
             ip_l++;
         }
     }
+    bpf_printk("i is %d",i);
     return ip_l;
 }
 
-static inline __u32 kmesh_snprintf(char *msg, const char *fmt, u64 *data, u32 data_len) {
+static __always_inline __u32 kmesh_snprintf(char *msg , const char fmt[MAX_BUF_LEN], u64 *data, u64 data_len) {
     int i = 0;
+    int flag = 0;
+    int j = 0;
     int mod = 0;
-    int num_args;
-    int ret;
 
-    num_args = data_len / 8;
-    bpf_printk("num_args : %d", num_args);
-    bpf_printk("num_args 1: %lld", data[0]);
-    bpf_printk("num_args 2: %d", data[1]);
-    bpf_printk("num_args 3: %d", data[2]);
-    while (i < MAX_MSG_LEN )
-    {
-        if (!*fmt)
+#pragma clang loop unroll(full)
+    for (i = 0; i < MAX_BUF_LEN; i++) {
+        if (fmt[i] == '\0')
             break;
-        switch (*fmt)
-        {
-        case '%':
-            fmt++;
-            while (i < MAX_MSG_LEN) {
-                if (*fmt == 'h') {
-                    char ip4_str[sizeof("255.255.255.255")];
-                    int ip_l = 0;
-                    u32 ip = *(u32 *)(data[mod]);
-                    ip_l = format_ipv4addr(ip, ip4_str);
-                    char *ip4_ptr = ip4_str;
-                    bpf_printk("len is %d",ip_l);
-                    for (int k = 0; k < ip_l; k++) {
-                        *msg++ = *ip4_ptr++;
-                    }
-                    mod++;
-                    i += ip_l;
-                    break;
-                }else if(*fmt == 'u') {
-                    char tmp_port[6];  /* max len of 16 bit unsigned number is 65535 */
-                    u64 port = *((u64 *)data + mod);
-                    if (port >= 65535)
-                        return -EINVAL;
-                    ret = convert_port(port, tmp_port);
-                    char *d = tmp_port + ret;
-                    int cnt = 5 - ret;
-                #pragma unroll  
-                    for (int k = 0; k < cnt - 1; k++) {
-                        *msg++ = *d++;
-                    }
-                    *msg++ = *d;
-                    mod++;
-                    i += cnt;
-                    break;
-                }
-                fmt++;
-            }
-            break;
-        default:
-            break;
-        }
-        if (*fmt == 'h' || *fmt == 'u') {
-            fmt++;
+        // if (fmt[i] == '%' && i+1 < MAX_BUF_LEN && fmt[i+1] == 'p') {
+            // flag = 1;
+            // continue;
+        // }
+        if (fmt[i] == '%') {
+            flag = 1;
             continue;
         }
-        *msg++ = *fmt++;
-        i++;
+        if (flag && fmt[i] == 'h') {
+            u64 ip = (u64)*(u64*) *(data + mod);
+            u8 ip1 = (ip >> 24) & 0xFF;
+            u8 ip2 = (ip >> 16) & 0xFF;
+            u8 ip3 = (ip >> 8) & 0xFF;
+            u8 ip4 = (ip >> 0) & 0xFF;
+            char tmp[MAX_IP4_LEN];
+            tmp[2] = '0' + (ip1 % 10);
+            ip1 /= 10;
+            tmp[1] = '0' + (ip1 % 10);
+            ip1 /= 10;
+            tmp[0] = '0' + (ip1 % 10);
+            tmp[3] = '.';
+
+            tmp[6] = '0' + (ip2 % 10);
+            ip2 /= 10;
+            tmp[5] = '0' + (ip2 % 10);
+            ip2 /= 10;
+            tmp[4] = '0' + (ip2 % 10);
+            tmp[7] = '.';
+
+            tmp[10] = '0' + (ip3 % 10);
+            ip3 /= 10;
+            tmp[9] = '0' + (ip3 % 10);
+            ip3 /= 10;
+            tmp[8] = '0' + (ip3 % 10);
+            tmp[11] = '.';
+
+            tmp[14] = '0' + (ip4 % 10);
+            ip4 /= 10;
+            tmp[13] = '0' + (ip4 % 10);
+            ip4 /= 10;
+            tmp[12] = '0' + (ip4 % 10);
+
+            *msg++ = tmp[0];
+            *msg++ = tmp[1];
+            *msg++ = tmp[2];
+            *msg++ = tmp[3];
+            *msg++ = tmp[4];
+            *msg++ = tmp[5];
+            *msg++ = tmp[6];
+            *msg++ = tmp[7];
+            *msg++ = tmp[8];
+            *msg++ = tmp[9];
+            *msg++ = tmp[10];
+            *msg++ = tmp[11];
+            *msg++ = tmp[12];
+            *msg++ = tmp[13];
+            *msg++ = tmp[14];
+            j += MAX_IP4_LEN;
+            mod++;
+            flag = 0;
+            continue;
+        }
+        if (flag && fmt[i] == 'u') {
+            
+            u64 p = data[mod];
+            if (p > 65535)
+                return -EINVAL;
+            char tmp[MAX_PORT_LEN];
+            tmp[4] = '0' + p % 10;
+            p /= 10;
+            tmp[3] = '0' + p % 10;
+            p /= 10;
+            tmp[2] = '0' + p % 10;
+            p /= 10;
+            tmp[1] = '0' + p % 10;
+            p /= 10;
+            tmp[0] = '0' + p % 10;
+
+            *msg++ = tmp[0];
+            *msg++ = tmp[1];
+            *msg++ = tmp[2];
+            *msg++ = tmp[3];
+            *msg++ = tmp[4];
+            j += MAX_PORT_LEN;
+            mod++;
+            flag = 0;
+            continue;
+        }
+        if (flag)
+            continue;
+        *msg++ = fmt[i];
+        j++;
     }
-    return i;
+    return j;
 }
