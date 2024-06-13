@@ -22,16 +22,12 @@ int BPF_KPROBE(inet_csk_get_port, struct sock *sk, unsigned short snum)
 	__u16 port = 8;
 	__u32 port1 = 8000;
 	__u32 port0 = 10004;
-	BPF_LOG(DEBUG, KMESH, "i want to print addr %pI4h:%u HHHHH",(uintptr_t)&ip1, port);
+	BPF_LOG(DEBUG, KMESH, "i want to print addr %pI4h:%u HHHHH",&ip1, port);
 	return 0;
 }
 
 SEC("kretprobe/inet_csk_get_port")
 int BPF_KRETPROBE(inet_csk_get_port_exit, int ret)
 {
-	pid_t pid;
-
-	pid = bpf_get_current_pid_tgid() >> 32;
-	bpf_printk("KPROBE EXIT: pid = %d, ret = %d\n", pid, ret);
 	return 0;
 }
