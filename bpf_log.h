@@ -86,9 +86,27 @@ static inline void convert_v4(char* data, u32 ip) {
     *data = '\0';
 }
 
-static inline convert_v6(char* data, u32* ip6) {
-    
+static const char hex_digits[16] = "0123456789abcdef";
+static inline void convert_v6(char* data, u32* ip6) {
 
+    for (int i = 0; i < 4;i++) {
+        u32 ip = *(ip6 + i); 
+        u16 ip_1 = (ip >> 0) & 0xFFFF;
+        u16 ip_2 = (ip >> 16) & 0xFFFF;
+        for (int j = 0; j < 2;j++) {
+            u16 ip_1 = (ip) & 0xFFFF;
+            u8 h_1 = (ip_1 >> 0) & 0xFF; 
+            u8 h_2 = (ip_1 >> 8) & 0xFF; 
+            *data++ = hex_digits[(h_1 >> 4) & 0xF]; 
+            *data++ = hex_digits[(h_1 >> 0) & 0xF]; 
+            *data++ = hex_digits[(h_2 >> 4) & 0xF];
+            *data++ = hex_digits[(h_2 >> 0) & 0xF]; 
+            *data++ = ':';
+            ip = ip >> 16;
+        }
+    }
+    data--;
+    *data = '\0';
 }
 /* 2001:0db8:3333:4444:CCCC:DDDD:EEEE:FFFF */
 /* 192.168.000.001 */
