@@ -26,6 +26,6 @@ struct {
     ret = kmesh_snprintf(e->msg, fmt);                                         \
     bpf_printk("ret is%d", ret);                                               \
     bpf_printk("after msg :%s", e->msg);                                       \
-    ret = bpf_trace_printk(e->msg, sizeof(e->msg), 3232235623, 5000);          \
+    ret = bpf_trace_printk(e->msg, ret+1, 3232235623, 5000);          \
     bpf_printk("ret is:%d", ret);                                              \
   } while (0)
