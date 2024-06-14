@@ -22,7 +22,7 @@ int BPF_KPROBE(inet_csk_get_port, struct sock *sk, unsigned short snum)
 	__u16 port = 8;
 	__u32 port1 = 8000;
 	__u32 port0 = 10004;
-	BPF_LOG(DEBUG, KMESH, "i want to print addr %pI4h:%u HHHHH",&ip1, port);
+	BPF_LOG(DEBUG, KMESH, "i want to print addr %s:%u HHHHH", ip2str(&ip, 1), port);
 	return 0;
 }
 
