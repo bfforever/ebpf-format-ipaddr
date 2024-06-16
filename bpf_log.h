@@ -1,5 +1,7 @@
 #include "common.h"
 
+#define Hello hello
+
 struct log_event {
     __u32 ret;
     char msg[MAX_BUF_LEN];
