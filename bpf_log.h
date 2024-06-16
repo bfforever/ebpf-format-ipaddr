@@ -1,6 +1,7 @@
 #include "common.h"
 
 #define Hello hello
+#define Hello2 hello2
 
 struct log_event {
     __u32 ret;
