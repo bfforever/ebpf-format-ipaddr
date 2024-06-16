@@ -19,6 +19,19 @@ static void sig_int(int signo)
 	stop = 1;
 }
 
+static void bump_memlock_rlimit(void)
+{
+    struct rlimit rlim_new = {
+        .rlim_cur	= RLIM_INFINITY,
+        .rlim_max	= RLIM_INFINITY,
+    };
+
+    if (setrlimit(RLIMIT_MEMLOCK, &rlim_new)) {
+        fprintf(stderr, "Failed to increase RLIMIT_MEMLOCK limit!\n");
+        exit(1);
+    }
+}
+
 int main(int argc, char **argv)
 {
 	struct ipaddr_bpf *skel;
@@ -26,6 +39,8 @@ int main(int argc, char **argv)
 
 	/* Set up libbpf errors and debug info callback */
 	libbpf_set_print(libbpf_print_fn);
+
+	 bump_memlock_rlimit();
 
 	/* Open load and verify BPF application */
 	skel = ipaddr_bpf__open_and_load();
